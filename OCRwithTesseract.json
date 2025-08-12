@@ -6,36 +6,16 @@
       "type": "n8n-nodes-base.manualTrigger",
       "typeVersion": 1,
       "position": [
-        -160,
-        -260
+        -300,
+        -280
       ],
       "id": "ef9ce03a-ee9c-4c2c-988e-c9d8e37593e2",
       "name": "When clicking ‘Execute workflow’"
     },
     {
       "parameters": {
-        "model": "qwen/qwen3-8b:free",
-        "options": {}
-      },
-      "id": "1b174ada-7404-419f-a592-12f9af75c325",
-      "name": "OpenRouter Chat Model",
-      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
-      "position": [
-        620,
-        -100
-      ],
-      "typeVersion": 1,
-      "credentials": {
-        "openRouterApi": {
-          "id": "IThhGZfzxKfICtNG",
-          "name": "OpenRouter account"
-        }
-      }
-    },
-    {
-      "parameters": {
         "promptType": "define",
-        "text": "=ข้อความด้านล่างนี้เป็นเนื้อหา OCR จากหนังสือราชการ กรุณาแยกหัวข้อสำคัญออกมาในรูปแบบ JSON:\n\n1. book_id: เลขที่หนังสือ\n2. date: วันที่ในเอกสาร\n3. subject: หัวเรื่อง\n4. to: เรียน\n5. attach: สิ่งที่ส่งมาด้วย\n6. detail: เนื้อความในหนังสือ\n7. signed_by: ผู้ลงนาม\n8. signed_by2: ตำแหน่งผู้ลงนาม\n9. contact: ช่องทางติดต่อ (เช่น เบอร์โทร อีเมล)\n10. download_url: ลิงก์สำหรับดาวน์โหลด (ถ้ามี)\n\nOCR_TEXT:\n\"\"\"\n{{ $json[\"stdout\"] }}\n\"\"\""
+        "text": "=You are a document parser. Extract information from Thai government documents and return ONLY a valid JSON object.\n\nIMPORTANT: \n- Return ONLY the JSON object, no explanations\n- Use double quotes for all strings\n- Do not include markdown formatting\n- Ensure the JSON is complete and valid\n\nExtract these fields from the OCR text:\n\n{\n  \"book_id\": \"document number or ID\",\n  \"date\": \"document date\", \n  \"subject\": \"document subject/title\",\n  \"to\": \"recipient\",\n  \"attach\": \"attachments mentioned\",\n  \"detail\": \"main content summary (max 200 characters)\",\n  \"signed_by\": \"signatory name\",\n  \"signed_by2\": \"signatory position/title\",\n  \"contact\": {\n    \"phone\": \"phone number if found\",\n    \"email\": \"email if found\", \n    \"fax\": \"fax if found\"\n  },\n  \"download_url\": \"download link if mentioned\"\n}\n\nRules:\n- If information is not found, use empty string \"\"\n- For contact, extract phone/email/fax if mentioned\n- Keep detail under 200 characters\n- Dates should be in Thai format if possible\n\nOCR_TEXT:\n\"\"\"\n{{ $('OCR by Tesseract').item.json.stdout }}\n\"\"\"\n\nJSON:"
       },
       "id": "fd55adea-94cd-4b9b-a7de-218e4b56fa07",
       "name": "Structure Text to JSON with LLM",
@@ -222,29 +202,35 @@
       "name": "Save to Google Sheet",
       "type": "n8n-nodes-base.googleSheets",
       "position": [
-        1120,
+        1100,
         -280
       ],
-      "typeVersion": 4.5
+      "typeVersion": 4.5,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "f1f7CxKMbtq2LdJL",
+          "name": "Google Sheets account"
+        }
+      }
     },
     {
       "parameters": {
         "content": "## Thai OCR to Sheet\nThis workflow extracts Thai PDF text using typhoon-ocr, converts it to structured JSON using LLM, and saves the output to Google Sheets. Works with self-hosted n8n only.",
-        "height": 360,
-        "width": 1540
+        "height": 420,
+        "width": 1660
       },
       "id": "159dee4f-171c-4e4b-8060-cf370c896851",
       "name": "Sticky Note",
       "type": "n8n-nodes-base.stickyNote",
       "position": [
-        -220,
-        -380
+        -380,
+        -360
       ],
       "typeVersion": 1
     },
     {
       "parameters": {
-        "command": "pdftoppm -png -f 1 -l 1 /data/input-image.pdf /data/page"
+        "command": "=pdftoppm -png -f 1 -l 1 /data/{{ $json.fileName }} /data/tempfile"
       },
       "type": "n8n-nodes-base.executeCommand",
       "typeVersion": 1,
@@ -253,11 +239,12 @@
         -280
       ],
       "id": "a4bff6a5-4676-4685-8a2e-5986e27834fe",
-      "name": "Convert PDF to PNG"
+      "name": "Convert PDF to PNG",
+      "alwaysOutputData": false
     },
     {
       "parameters": {
-        "command": "tesseract /data/page-1.png stdout -l tha+eng --psm 6"
+        "command": "tesseract /data/tempfile-1.png stdout -l tha+eng --psm 6"
       },
       "type": "n8n-nodes-base.executeCommand",
       "typeVersion": 1,
@@ -276,8 +263,8 @@
       "type": "n8n-nodes-base.readWriteFile",
       "typeVersion": 1,
       "position": [
-        40,
-        -260
+        -80,
+        -280
       ],
       "id": "803ceff7-8150-410e-a9b0-8da697fd7586",
       "name": "Read/Write Files from Disk"
@@ -342,6 +329,51 @@
       ],
       "id": "30b80a51-0326-4117-9451-d5bb3b7c6745",
       "name": "Switch"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        100,
+        -280
+      ],
+      "id": "71d7a98f-5cf1-48d9-80d5-c60998ff701a",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "command": "=mv /data/{{ $('Read/Write Files from Disk').item.json.fileName }} /doc/"
+      },
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        1100,
+        -140
+      ],
+      "id": "42cd6354-b282-4fc9-a014-2d4b4d79eeb5",
+      "name": "Move file to folder"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmOllama",
+      "typeVersion": 1,
+      "position": [
+        640,
+        -120
+      ],
+      "id": "46ba9241-a7f3-411f-b367-e8fe3f4bfa33",
+      "name": "Ollama Model",
+      "credentials": {
+        "ollamaApi": {
+          "id": "flalwIlZcNfLfyl6",
+          "name": "Ollama account"
+        }
+      }
     }
   ],
   "pinData": {},
@@ -352,17 +384,6 @@
           {
             "node": "Read/Write Files from Disk",
             "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "OpenRouter Chat Model": {
-      "ai_languageModel": [
-        [
-          {
-            "node": "Structure Text to JSON with LLM",
-            "type": "ai_languageModel",
             "index": 0
           }
         ]
@@ -416,7 +437,7 @@
       "main": [
         [
           {
-            "node": "Switch",
+            "node": "Loop Over Items",
             "type": "main",
             "index": 0
           }
@@ -440,14 +461,60 @@
           }
         ]
       ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save to Google Sheet": {
+      "main": [
+        [
+          {
+            "node": "Move file to folder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Move file to folder": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Structure Text to JSON with LLM",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": false,
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "ad5494b4-42b9-447a-9c4c-99a883cfc2c8",
+  "versionId": "a8b65c48-6380-48a8-9a10-47f466cf160b",
   "meta": {
+    "templateCredsSetupCompleted": true,
     "instanceId": "1acdcfedaf6ad851116166b60116e21800a2dafa2081e7b861b376091fdaa990"
   },
   "id": "sLRunCCUQAhvMmgD",
