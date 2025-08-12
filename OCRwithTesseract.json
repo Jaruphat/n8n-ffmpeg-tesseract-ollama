@@ -1,0 +1,455 @@
+{
+  "name": "OCRwithTesseract",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -160,
+        -260
+      ],
+      "id": "ef9ce03a-ee9c-4c2c-988e-c9d8e37593e2",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "model": "qwen/qwen3-8b:free",
+        "options": {}
+      },
+      "id": "1b174ada-7404-419f-a592-12f9af75c325",
+      "name": "OpenRouter Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "position": [
+        620,
+        -100
+      ],
+      "typeVersion": 1,
+      "credentials": {
+        "openRouterApi": {
+          "id": "IThhGZfzxKfICtNG",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=ข้อความด้านล่างนี้เป็นเนื้อหา OCR จากหนังสือราชการ กรุณาแยกหัวข้อสำคัญออกมาในรูปแบบ JSON:\n\n1. book_id: เลขที่หนังสือ\n2. date: วันที่ในเอกสาร\n3. subject: หัวเรื่อง\n4. to: เรียน\n5. attach: สิ่งที่ส่งมาด้วย\n6. detail: เนื้อความในหนังสือ\n7. signed_by: ผู้ลงนาม\n8. signed_by2: ตำแหน่งผู้ลงนาม\n9. contact: ช่องทางติดต่อ (เช่น เบอร์โทร อีเมล)\n10. download_url: ลิงก์สำหรับดาวน์โหลด (ถ้ามี)\n\nOCR_TEXT:\n\"\"\"\n{{ $json[\"stdout\"] }}\n\"\"\""
+      },
+      "id": "fd55adea-94cd-4b9b-a7de-218e4b56fa07",
+      "name": "Structure Text to JSON with LLM",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "position": [
+        640,
+        -280
+      ],
+      "typeVersion": 1.6
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const raw = $json[\"text\"];\n\n// 1. ลบ ```json และ ``` ที่ LLM อาจใส่มา\nconst cleaned = raw.replace(/```json\\n?|```/g, \"\").trim();\n\nlet parsed;\ntry {\n  // 2. แปลงเป็น object\n  parsed = JSON.parse(cleaned);\n} catch (err) {\n  throw new Error(\"JSON parsing failed: \" + err.message + \"\\n\\nRaw text:\\n\" + cleaned);\n}\n\n// 3. หาก contact เป็น object แยก field ออกมา\nconst contact = parsed.contact || {};\n\nreturn {\n  book_id: parsed.book_id || \"\",\n  date: parsed.date || \"\",\n  subject: parsed.subject || \"\",\n  to: parsed.to || \"\",\n  attach: parsed.attach || \"\",\n  detail: parsed.detail || \"\",\n  signed_by: parsed.signed_by || \"\",\n  signed_by2: parsed.signed_by2 || \"\",\n  contact_phone: contact.phone || \"\",\n  contact_email: contact.email || \"\",\n  contact_fax: contact.fax || \"\",\n  download_url: parsed.download_url || \"\"\n};\n"
+      },
+      "id": "2c7bb1da-d670-4263-b124-82c1a9505ee5",
+      "name": "Parse JSON to Sheet Format",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        940,
+        -280
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "1h70cJyLj5i2j0Ag5kqp93ccZjjhJnqpLmz-ee5r4brU",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1h70cJyLj5i2j0Ag5kqp93ccZjjhJnqpLmz-ee5r4brU/edit?usp=drivesdk",
+          "cachedResultName": "TyphoonOCR_Extracted_Data"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gid=0",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1h70cJyLj5i2j0Ag5kqp93ccZjjhJnqpLmz-ee5r4brU/edit#gid=0",
+          "cachedResultName": "Sheet1"
+        },
+        "columns": {
+          "value": {
+            "to": "={{ $json.to }}",
+            "date": "={{ $json.date }}",
+            "attach": "={{ $json.attach }}",
+            "detail": "={{ $json.detail }}",
+            "book_id": "={{ $json.book_id }}",
+            "subject": "={{ $json.subject }}",
+            "signed_by": "={{ $json.signed_by }}",
+            "signed_by2": "={{ $json.signed_by2 }}",
+            "contact_fax": "={{ $json.contact_fax }}",
+            "download_url": "={{ $json.download_url }}",
+            "contact_email": "={{ $json.contact_email }}",
+            "contact_phone": "={{ $json.contact_phone }}"
+          },
+          "schema": [
+            {
+              "id": "book_id",
+              "type": "string",
+              "display": true,
+              "removed": false,
+              "required": false,
+              "displayName": "book_id",
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "date",
+              "type": "string",
+              "display": true,
+              "removed": false,
+              "required": false,
+              "displayName": "date",
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "subject",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "displayName": "subject",
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "to",
+              "type": "string",
+              "display": true,
+              "removed": false,
+              "required": false,
+              "displayName": "to",
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "attach",
+              "type": "string",
+              "display": true,
+              "removed": false,
+              "required": false,
+              "displayName": "attach",
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "detail",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "displayName": "detail",
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "signed_by",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "displayName": "signed_by",
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "signed_by2",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "displayName": "signed_by2",
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "contact_phone",
+              "type": "string",
+              "display": true,
+              "removed": false,
+              "required": false,
+              "displayName": "contact_phone",
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "contact_email",
+              "type": "string",
+              "display": true,
+              "removed": false,
+              "required": false,
+              "displayName": "contact_email",
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "contact_fax",
+              "type": "string",
+              "display": true,
+              "removed": false,
+              "required": false,
+              "displayName": "contact_fax",
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "download_url",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "displayName": "download_url",
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            }
+          ],
+          "mappingMode": "defineBelow",
+          "matchingColumns": [
+            "book_id"
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "9e2ad7c0-7ffc-4f3c-9ea0-d948a3a80d3a",
+      "name": "Save to Google Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "position": [
+        1120,
+        -280
+      ],
+      "typeVersion": 4.5
+    },
+    {
+      "parameters": {
+        "content": "## Thai OCR to Sheet\nThis workflow extracts Thai PDF text using typhoon-ocr, converts it to structured JSON using LLM, and saves the output to Google Sheets. Works with self-hosted n8n only.",
+        "height": 360,
+        "width": 1540
+      },
+      "id": "159dee4f-171c-4e4b-8060-cf370c896851",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -220,
+        -380
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "command": "pdftoppm -png -f 1 -l 1 /data/input-image.pdf /data/page"
+      },
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        440,
+        -280
+      ],
+      "id": "a4bff6a5-4676-4685-8a2e-5986e27834fe",
+      "name": "Convert PDF to PNG"
+    },
+    {
+      "parameters": {
+        "command": "tesseract /data/page-1.png stdout -l tha+eng --psm 6"
+      },
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        440,
+        -140
+      ],
+      "id": "9b320c70-44e9-403e-935a-0928296975ae",
+      "name": "OCR by Tesseract"
+    },
+    {
+      "parameters": {
+        "fileSelector": "/data/*",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [
+        40,
+        -260
+      ],
+      "id": "803ceff7-8150-410e-a9b0-8da697fd7586",
+      "name": "Read/Write Files from Disk"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.fileName }}",
+                    "rightValue": ".pdf",
+                    "operator": {
+                      "type": "string",
+                      "operation": "endsWith"
+                    },
+                    "id": "58248610-584c-4367-9367-5f8082550b19"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "a250f446-6444-4ad3-a839-a9439175800c",
+                    "leftValue": "={{ $json.fileName }}",
+                    "rightValue": "\\.(png|jpg|jpeg|gif|bmp|tiff)$",
+                    "operator": {
+                      "type": "string",
+                      "operation": "regex"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        240,
+        -260
+      ],
+      "id": "30b80a51-0326-4117-9451-d5bb3b7c6745",
+      "name": "Switch"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Read/Write Files from Disk",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Structure Text to JSON with LLM",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse JSON to Sheet Format": {
+      "main": [
+        [
+          {
+            "node": "Save to Google Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structure Text to JSON with LLM": {
+      "main": [
+        [
+          {
+            "node": "Parse JSON to Sheet Format",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert PDF to PNG": {
+      "main": [
+        [
+          {
+            "node": "OCR by Tesseract",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OCR by Tesseract": {
+      "main": [
+        [
+          {
+            "node": "Structure Text to JSON with LLM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read/Write Files from Disk": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Convert PDF to PNG",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "OCR by Tesseract",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "ad5494b4-42b9-447a-9c4c-99a883cfc2c8",
+  "meta": {
+    "instanceId": "1acdcfedaf6ad851116166b60116e21800a2dafa2081e7b861b376091fdaa990"
+  },
+  "id": "sLRunCCUQAhvMmgD",
+  "tags": []
+}

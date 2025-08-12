@@ -1,0 +1,47 @@
+version: "3.8"
+
+services:
+  n8n:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "5678:5678"
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - C:/AI/ComfyUI/output:/comfy-output
+      - ./data:/data:rw
+      - ./doc:/doc:rw
+    environment:
+      - N8N_BASIC_AUTH_ACTIVE=true
+      - CHOWN_USER=node
+      - N8N_BASIC_AUTH_USER=admin
+      - N8N_BASIC_AUTH_PASSWORD=admin123
+      - N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=true
+      # Add the OLLAMA_BASE_URL environment variable to allow n8n to communicate with Ollama
+      - OLLAMA_BASE_URL=http://ollama:11434
+      # Tesseract OCR configuration
+      - TESSDATA_PREFIX=/usr/share/tessdata
+    user: "1000:1000"
+    depends_on:
+      - ollama
+    networks:
+      - n8n-network
+
+  ollama:
+    image: ollama/ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    container_name: ollama
+    networks:
+      - n8n-network
+
+volumes:
+  n8n_data:
+  ollama_data:
+
+networks:
+  n8n-network:
+    driver: bridge
